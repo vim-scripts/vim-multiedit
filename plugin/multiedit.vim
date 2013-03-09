@@ -1,6 +1,6 @@
 " *multiedit.txt* Multi-editing for Vim   
 " 
-" Version: 1.0.0
+" Version: 1.0.1
 " Author: Henrik Lissner <henrik at lissner.net>
 " License: MIT license 
 "
@@ -29,13 +29,9 @@ endif
 " }}
 
 " Color highlights {{
-if !hlexists("MultieditRegions")
-    hi default MultieditRegions gui=reverse term=reverse cterm=reverse
-endif
-if !hlexists("MultieditFirstRegion")
-    " TODO: Change these colors
-    hi default MultieditFirstRegion gui=reverse term=reverse cterm=reverse
-endif
+hi default MultieditRegions gui=reverse term=reverse cterm=reverse
+" hi default MultieditFirstRegion gui=reverse term=reverse cterm=reverse
+hi default link MultieditFirstRegion IncSearch
 " }}
 
 " Mappings {{
