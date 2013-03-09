@@ -1,0 +1,25 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=4467
+
+Do you envy Sublime Text 2's multiple selection and editing feature? This plugin tries to fill that text cursor shaped gap in your heart by letting you specify "regions" of text and edit them all from one place. 
+
+USAGE 
+Highlight words and make them a multiedit region using <leader>mm. Or you can add the word under the cursor with <leader>mw. If you just want to add text and not modify anything, you can prepend or append disposable regions using <leader>mi and <leader>ma 
+
+Once the regions have been selected, start editing with <leader>M - edits you make will be copied to other regions once you leave insert mode. 
+
+KEY MAPS 
+
+    <leader>mi      Add a disposable region before cursor 
+    <leader>ma     Add a disposable region after cursor 
+    <leader>mm    Add word under cursor (or current visual selection) as a region 
+
+    <leader>mn     Add word under cursor and jump to next occurance 
+    <leader>mp      Add word under cursor and jump to previous occurrance 
+
+    <leader>md      Delete region under cursor 
+    <leader>mr      Reset all regions 
+    <leader>ms      Set region under cursor as primary	
+    <leader>mu      Restore regions from previous use (if available)
+
+    <leader>M       Start editing from the end of the main region 
+    <leader>C       Start editing in change mode

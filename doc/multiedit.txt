@@ -1,0 +1,93 @@
+*multiedit.txt*	 Multi-editing for Vim   
+
+Version: 1.0.0
+Author: Henrik Lissner <henrik at lissner.net>
+License: MIT license
+
+CONTENTS                                                 *multiedit-contents*
+
+Introduction        |multiedit-introduction|
+Mappings	    |multiedit-mappings|
+Settings	    |multiedit-settings|
+Changelog           |multiedit-changelog|
+
+==============================================================================
+INTRODUCTION					    *multiedit-introduction*
+
+Do you envy Sublime Text 2's multiple selection and editing? This plugin
+tries to fill that text cursor shaped gap in your heart.
+
+It works by applying changes to all "regions" you've selected in a way that combines Vim's visual block edit mode and ST2's multi-selection feature. Check out |multiedit-mappings| to figure out how.
+
+NOTE: This plugin was inspired by https://github.com/felixr/vim-multiedit, by Felix
+Riedel <felix.riedel at gmail.com>.
+
+==============================================================================
+MAPPINGS                                            *multiedit-mappings*
+
+  Mode	Action					Command
+  n	Add marker before cursor    		<leader>mi
+  n    	Add marker after cursor	    		<leader>ma
+  nv   	Add selection		    		<leader>mm
+  n    	Add word under cursor	    		<leader>mw
+  n   	Add word + jump to next occurrence	<leader>mn
+  n   	Add word + jump to prev occurrence	<leader>mp
+  n    	Begin editing		    		<leader>M
+  n    	Clear all regions	    		<leader>mr
+  n    	Clear region under cursor   		<leader>md
+
+==============================================================================
+SETTINGS                                            *multiedit-settings*
+
+>
+    let g:multiedit_no_mappings = 0
+    let g:multiedit_auto_reset = 1
+    let g:multiedit_mark_character = '|'
+<
+
+The highlight regions can be customized:
+>
+    hi default MultieditRegions gui=reverse term=reverse cterm=reverse
+    hi default MultieditFirstRegion gui=reverse term=reverse cterm=reverse
+<
+
+==============================================================================
+CHANGELOG					    *multiedit-changelog*
+
+2013-03-07 [1.0.0]
+- Implement next/previous match functionality (like CMD+D in ST2)
+- Fix :MultieditAddRegion not accepting ranges
+
+2013-03-06
+- Move functions to autoload/multiedit.vim
+- Remove synchronized editing (caused more problems than helped)
+- Highlights keep up with edits
+- Remove mouse mappings
+- Replace <Plug>s with :commands, see plugin/multiedit.vim
+- Add "abort" keymaps that will disengage edit mode (and insert mode) if
+pressed. These are <CR>, <Up>, <Down> - which the plugin can't take into
+account.
+- Fix bugs with regions on the same line
+
+2013-03-03
+- New marker system enables you to place disposable markers
+- Change setting variable name convention
+  - Remove g:multedit_auto_update
+  - Add g:multiedit_mark_character
+  - Add <C-LeftMouse> mouse map
+- Highlight first selection differently (though colors need changing)
+- Add clear() and addMatch()
+- General code cleanup
+
+2013-02-23
+- Auto-reset on InsertLeave by default (can be disabled)
+- Auto-update can be disabled
+- Add INSERT, APPEND and CHANGE triggers
+- Change default keymaps
+- Fix g:multiedit_nomappings setting
+
+2012-07-01
+- First experimental version
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:noet:fen:fdl=0:
