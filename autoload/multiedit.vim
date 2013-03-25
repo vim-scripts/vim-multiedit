@@ -1,7 +1,7 @@
 " *multiedit.txt* Multi-editing for Vim   
 
 " addRegion() {{
-func! multiedit#addRegion()
+func! multiedit#addRegion(is_marker)
     if mode() != 'v'
         normal! gv
     endif
@@ -12,22 +12,38 @@ func! multiedit#addRegion()
     let endcol = col('.')+1
 
     " add selection to list
-    let sel = {'line': line, 'col': startcol, 'end': endcol, 'len': endcol-startcol, 'suffix_length': col('$')-endcol}
+    let sel = { 
+        \ 'line': line, 
+        \ 'col': startcol,
+        \ 'len': endcol-startcol,
+        \ 'suffix_length': col('$')-endcol,
+        \ 'is_marker': a:is_marker
+    \ }
     if !exists("b:regions")
         let b:regions = {}
         let b:first_region = sel
     endif
 
     if has_key(b:regions, line)
-        if s:hasOverlap(sel) == -1
+        " Check if this overlaps with any other region
+        let overlapid = s:hasOverlap(sel)
+        if overlapid == -1
             let b:regions[line] = b:regions[line] + [sel]
+        else
+            " If so, change this to the 'main' region
+            let b:first_region = b:regions[line][overlapid]
+            let new_first = 1
         endif
     else
         let b:regions[line] = [sel]
     endif
 
     " Highlight the region
-    call s:highlight(line, startcol, endcol)
+    if exists("new_first")
+        call s:rehighlight()
+    else
+        call s:highlight(line, startcol, endcol)
+    endif
 
     " Exit visual mode
     normal! v
@@ -39,7 +55,17 @@ func! multiedit#addMark(mode)
     let mark = g:multiedit_mark_character
 
     " Insert the marker character and select it
-    exe "normal! ".a:mode.g:multiedit_mark_character."v"
+    let line = getline('.')
+    let col = col('.')
+
+    " Insert the markers, pre or post, depending on the mode
+    let precol = a:mode ==# "i" ? 2 : 1
+    let sufcol = a:mode ==# "i" ? 1 : 0
+    call setline(line('.'), line[0:col-precol].mark.line[(col-sufcol):])
+    if a:mode ==# "a"
+        normal! l
+    endif
+    normal! v
 
     let line = line('.')
     if exists("b:regions") && has_key(b:regions, line)
@@ -47,10 +73,9 @@ func! multiedit#addMark(mode)
         " them to the right.
         let col = col('.')
         for region in b:regions[line]
-            let offset = strlen(g:multiedit_mark_character)
+            let offset = strlen(mark)
             if region.col > col
                 let region.col += offset
-                let region.end += offset
             else
                 let region.suffix_length += offset
             endif
@@ -60,52 +85,12 @@ func! multiedit#addMark(mode)
     endif
 
     " ...then make it a region
-    call multiedit#addRegion()
+    call multiedit#addRegion(1)
 endfunc
 " }}
 
-" addMatch(direction) {{
-func! multiedit#addMatch(direction)
-    if index(['?', '/'], a:direction) == -1
-        return
-    endif
-
-    " Enter visual mode and select the word
-    normal! viw
-    call multiedit#addRegion()
-
-    let word = escape(expand("<cword>"), a:direction)
-    let wordlen = strlen(word)
-
-    " Jump to next instance of the word
-    exe "normal! ".a:direction."\\V".word.""
-    if a:direction == "?"
-        normal! n
-    endif
-endfunc
-" }}
-
-" set() {{
-" Set the region under the cursor to be the new first_region
-func! multiedit#set()
-    if !exists("b:regions")
-        return
-    endif
-
-    let sel = {"col": col('v'), "end": col('.'), "line":line('.')}
-
-    for region in b:regions[sel.line]
-        if s:isOverlapping(sel, region)
-            let b:first_region = region
-        endif
-    endfor
-
-    call s:rehighlight()
-endfunc
-" }}
-
-" edit() {{
-func! multiedit#edit(bang, ...)
+" start() {{
+func! multiedit#start(bang, ...)
     if !exists("b:regions") 
         if g:multiedit_auto_restore == 0 || !multiedit#again()
             return
@@ -114,21 +99,19 @@ func! multiedit#edit(bang, ...)
 
     let lastcol = b:first_region.col + b:first_region.len
 
-    " If bang exists, clear the word (and replace it with a marker) before you
-    " start editing
-    if a:bang ==# '!'
-        " Select the word
-        call cursor(b:first_region.line, b:first_region.col)
-        normal! v
-        call cursor(b:first_region.line, lastcol-1)
-
-        " Delete it, add the marker, and move the cursor ahead of it
-        normal! d
+    " If bang exists OR the first region is a marker, then clear it before
+    " editing mode begins.
+    if a:bang ==# '!' || b:first_region.is_marker
+        " Remove the word and update the highlights
+        let linetext = getline(b:first_region.line)
+        call setline(b:first_region.line, linetext[0:b:first_region.col-2].linetext[(b:first_region.col+b:first_region.len)-1:])
         call multiedit#update(0)
-        call cursor(b:first_region.line, b:first_region.col)
 
         " Refresh the lastcol (it's likely moved!)
         let lastcol = b:first_region.col + b:first_region.len
+
+        " Move cursor to the right spot
+        call cursor(b:first_region.line, b:first_region.col)
     else
         " Move cursor to the end of the word
         call cursor(b:first_region.line, lastcol)
@@ -146,16 +129,14 @@ func! multiedit#edit(bang, ...)
         startinsert
     endif
     
+    " Where the magic happens
     augroup multiedit
         au!
         " Update the highlights as you edit
         au CursorMovedI * call multiedit#update(0)
 
         " Once you leave INSERT, apply changes and delete this augroup
-        au InsertLeave * 
-                    \ call multiedit#update(1) |
-                    \ call s:maps(1) |
-                    \ au! multiedit
+        au InsertLeave * call multiedit#update(1) | call s:maps(0) | au! multiedit
 
         if g:multiedit_auto_reset == 1
             " Clear all regions once you exit insert mode
@@ -167,14 +148,16 @@ endfunc
 
 " reset() {{
 func! multiedit#reset()
-    let b:regions_last = {}
-    if exists("b:regions")
-        let b:regions_last["regions"] = b:regions
-        unlet b:regions
+    if exists("b:regions_last")
+        unlet b:regions_last
     endif
-    if exists("b:first_region")
+    if exists("b:regions")
+        let b:regions_last = {}
+        let b:regions_last["regions"] = b:regions
         let b:regions_last["first"] = b:first_region
+
         unlet b:first_region
+        unlet b:regions
     endif
 
     syn clear MultieditRegions
@@ -194,7 +177,7 @@ func! multiedit#clear(...)
     if a:0 == 1 && type(a:1) == 4
         let sel = a:1
     else
-        let sel = {"col": col('v'), "end": col('.'), "line":line('.')}
+        let sel = {"col": col('v'), "len": 1, "line":line('.')}
     endif
 
     if !has_key(b:regions, sel.line)
@@ -207,10 +190,15 @@ func! multiedit#clear(...)
         " Does this cursor overlap with this region? If so, delete it.
         if s:isOverlapping(sel, region)
 
+            " If you're deleting a main region, we need to pass on the role to
+            " another region first!
             if region == b:first_region
                 unlet b:first_region
-                if len(b:regions[sel.line]) > 1
-                    let b:first_region = b:regions[sel.line][-1]
+
+                " Get the last specified region
+                let keys = keys(b:regions)
+                if len(keys)
+                    let b:first_region = b:regions[keys(b:regions)[-1]][-1]
                 endif
             endif
 
@@ -225,22 +213,23 @@ endfunc
 " }}
 
 " update() {{
-func! multiedit#update(change)
+" Update highlights when changes are made
+func! multiedit#update(change_mode)
     if !exists('b:regions')
         return
     endif
 
-    " Save cursor position
-    let b:save_cursor = getpos('.')
+    " Column offset from start of main edit region to cursor (relevant when
+    " restoring cursor location post-edit)
+    let cursor_col = col('.')-b:first_region.col
 
-    " Clear highlights so we can make changes and redo them later
+    " Clear highlights so we can make changes
     syn clear MultieditRegions
     syn clear MultieditFirstRegion
-
+    
     " Prepare the new, altered line
     let linetext = getline(b:first_region.line)
-    let linelen = len(linetext)
-    let newtext = linetext[(b:first_region.col-1): (linelen-b:first_region.suffix_length-1)]
+    let newtext = linetext[(b:first_region.col-1): (len(linetext)-b:first_region.suffix_length-1)]
 
     " Iterate through the lines where regions exist. And sort them by
     " sequence.
@@ -251,13 +240,10 @@ func! multiedit#update(change)
 
         " Iterate through each region on this line
         for region in regions
-
-            " Is it time to commit the changes?
-            if a:change 
+            if a:change_mode
 
                 let region.col += s:offset 
                 if region.line != b:first_region.line || region.col != b:first_region.col
-                    
                     " Get the old line
                     let oldline = getline(region.line)
 
@@ -277,35 +263,31 @@ func! multiedit#update(change)
 
             else
 
-                " Resize the highlight of first_region as it changes
                 if region.line == b:first_region.line
-
                     " ...move the highlight offset of regions after it
                     if region.col >= b:first_region.col
                         let region.col += s:offset 
                         let s:offset = s:offset + len(newtext) - b:first_region.len
                     endif
-                    
+
                     " ...and update the length of the first_region
                     if region.col == b:first_region.col
                         let region.len = len(newtext)
                     endif
-
                 endif
 
                 " Rehighlight it
                 call s:highlight(region.line, region.col, region.col+region.len)
 
             endif
-
         endfor
     endfor
 
-    " Remeasure the strlen from first_region.end to $
+    " Remeasure the strlen
     let b:first_region.suffix_length = col([b:first_region.line, '$']) - b:first_region.col - b:first_region.len
-
-    " Restore cursor position
-    call setpos('.', b:save_cursor)
+    
+    " Restore cursor location
+    call cursor(b:first_region.line, b:first_region.col + cursor_col)
 endfunc
 " }}
 
@@ -320,12 +302,71 @@ func! multiedit#again()
     let b:first_region = b:regions_last["first"]
     let b:regions = b:regions_last["regions"]
 
-    call multiedit#update(0)
+    call s:rehighlight()
     return 1
 endfunc
 " }}
 
-""""""""""""""""""""""""""(
+" jump() {{
+" Hop [-/+]N regions
+func! multiedit#jump(n)
+    let n = str2nr(a:n)
+    if !exists("b:regions")
+        echom "There are no regions to jump to."
+        return
+    elseif n == 0
+        " n == 0 goes nowhere!
+        return
+    endif
+
+    " This is the starting point of the search.
+    let col = col('.')
+    let line = line('.')
+
+    " Sort the lines so that we can sequentially access them. If the jump is
+    " going backwards, reverse the resulting keys.
+    let region_keys = sort(keys(b:regions))
+    if n < 0
+        call reverse(region_keys)
+    endif
+
+    let i = 0
+    for l in region_keys
+        " Skip over irrelevant lines (before/after the start point, depending
+        " on the jump direction)
+        if (n>0 && l<line) || (n<0 && l>line)
+            continue
+        endif
+
+        let regions = sort(copy(b:regions[l]), 's:entrySort')
+        if n < 0
+            call reverse(regions)
+        endif
+
+        for region in regions
+            " If this is the line we're on, skip irrelevant regions
+            " (before/after the start point, depending on jump direction)
+            if l == line
+                if ((n>0) && (region.col<=col)) || ((n<0) && (region.col>=col))
+                    continue
+                endif
+            endif
+
+            " Skip over n-1 matches, then move the cursor on the nth match
+            let i += a:n > 0 ? 1 : -1
+            if n == i
+                call cursor(l, region.col)
+                return 1
+            endif
+        endfor
+    endfor
+
+    echom "No more regions!"
+    return
+endfunc
+" }}
+
+""""""""""""""""""""""""""
 " isOverlapping(selA, selB) {{
 " Checks to see if selA overlaps with selB
 func! s:isOverlapping(selA, selB)
@@ -340,10 +381,12 @@ func! s:isOverlapping(selA, selB)
     endif
 
     " Check for overlapping
-    return a:selA.col == a:selB.col || a:selA.end == a:selB.end 
-                \ || a:selA.col == a:selB.end || a:selA.end == a:selB.col
-                \ || (a:selA.col > a:selB.col && a:selA.col < a:selB.end)
-                \ || (a:selA.end < a:selB.end && a:selA.end > a:selB.col)
+    let selAend = a:selA.col + (a:selA.len - 1)
+    let selBend = a:selB.col + (a:selB.len - 1)
+    return a:selA.col == a:selB.col || selAend == selBend 
+                \ || a:selA.col == selBend || selAend == a:selB.col
+                \ || (a:selA.col > a:selB.col && a:selA.col < selBend)
+                \ || (selAend < selBend && selAend > a:selB.col)
 endfunc
 " }}
 
@@ -383,13 +426,13 @@ func! s:rehighlight()
     " Go through regions and rehighlight them
     for line in keys(b:regions)
         for sel in b:regions[line]
-            call s:highlight(line, sel.col, sel.end)
+            call s:highlight(line, sel.col, sel.col + sel.len)
         endfor
     endfor
 endfunc
 " }}
 
-" unmap() {{
+" map() {{
 func! s:maps(unmap)
     if a:unmap
         iunmap <buffer><silent> <CR>

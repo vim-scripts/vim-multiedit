@@ -1,6 +1,6 @@
 " *multiedit.txt* Multi-editing for Vim   
 " 
-" Version: 1.1.3
+" Version: 2.0.0
 " Author: Henrik Lissner <henrik at lissner.net>
 " License: MIT license 
 "
@@ -14,7 +14,7 @@ endif
 let g:loaded_multiedit = 1
 
 
-" Settings {{
+" Settings
 if !exists('g:multiedit_no_mappings')
     let g:multiedit_no_mappings = 0
 endif
@@ -30,61 +30,43 @@ endif
 if !exists('g:multiedit_auto_restore')
     let g:multiedit_auto_restore = 1
 endif
-" }}
 
-" Color highlights {{
-hi default MultieditRegions gui=reverse term=reverse cterm=reverse
-" hi default MultieditFirstRegion gui=reverse term=reverse cterm=reverse
+
+" Color highlights
+hi default link MultieditRegions Search
 hi default link MultieditFirstRegion IncSearch
-" }}
 
-" Mappings {{
-com! -bar -range MultieditAddRegion call multiedit#addRegion()
-com! -bar MultieditPrependMark call multiedit#addMark('i')
-com! -bar MultieditAppendMark call multiedit#addMark('a')
 
-" Start edit mode!
-com! -bar -bang Multiedit call multiedit#edit(<q-bang>)
-" Set a new region as the edit region
-com! -bar MultieditSet call multiedit#set()
-
-" Clear region/marker under the cursor
-com! -bar -range MultieditClear call multiedit#clear()
-" Clear all regions and markers
+" Mappings
+com! -bar -range MultieditAddRegion call multiedit#addRegion(0)
+com! -bar -nargs=1 MultieditAddMark call multiedit#addMark(<q-args>)
+com! -bar -bang Multiedit call multiedit#start(<q-bang>)
+com! -bar MultieditClear call multiedit#clear()
 com! -bar MultieditReset call multiedit#reset()
-
-" Mark <cword> as region, then jump to and mark the next instance
-com! -bar -range MultieditNextMatch call multiedit#addMatch("/")
-
-" Like ^ but previous
-com! -bar -range MultieditPreviousMatch call multiedit#addMatch("?")
-
-" Load previous regions, if available
 com! -bar MultieditRestore call multiedit#again()
+com! -bar -nargs=1 MultieditHop call multiedit#jump(<q-args>)
 
 if g:multiedit_no_mappings != 1
-    " Markers
-    nmap <leader>ma :MultieditAppendMark<CR>
-    nmap <leader>mi :MultieditPrependMark<CR>
-
-    " Regions
-    vmap <leader>mm :MultieditAddRegion<CR>  
+    " Insert a disposable marker after the cursor
+    nmap <leader>ma :MultieditAddMark a<CR>
+    " Insert a disposable marker before the cursor
+    nmap <leader>mi :MultieditAddMark i<CR>
+    " Make the current selection/word an edit region
+    vmap <leader>m :MultieditAddRegion<CR>  
     nmap <leader>mm viw:MultieditAddRegion<CR>
-    nmap <leader>ms :MultieditSet<CR>
+    " Restore the regions from a previous edit session
     nmap <leader>mu :MultieditRestore<CR>
-    
-    " Matches
-    nmap <leader>mn :MultieditNextMatch<CR>
-    nmap <leader>mp :MultieditPreviousMatch<CR>
-
-    " Edit modes
+    " Move cursor between regions n times
+    map ]m :MultieditHop 1<CR>
+    map [m :MultieditHop -1<CR>
+    " Start editing!
     nmap <leader>M :Multiedit<CR>
+    " Clear the word and start editing
     nmap <leader>C :Multiedit!<CR>
-
-    " Resetting
+    " Unset the region under the cursor
     nmap <silent> <leader>md :MultieditClear<CR>
+    " Unset all regions
     nmap <silent> <leader>mr :MultieditReset<CR>
 endif 
-" }}
 
 " vim: set foldmarker={{,}} foldlevel=0 foldmethod=marker

@@ -3,23 +3,67 @@ This is a mirror of http://www.vim.org/scripts/script.php?script_id=4467
 Do you envy Sublime Text 2's multiple selection and editing feature? This plugin tries to fill that text cursor shaped gap in your heart by letting you specify "regions" of text and edit them all from one place. 
 
 USAGE 
-Highlight words and make them a multiedit region using <leader>mm. Or you can add the word under the cursor with <leader>mw. If you just want to add text and not modify anything, you can prepend or append disposable regions using <leader>mi and <leader>ma 
+Add edit-regions by using <leader>m in visual mode or <leader>mm in normal mode (selects the word under the cursor). You can also add disposable markers using <leader>mi (before cursor) and <leader>ma (after cursor).
 
-Once the regions have been selected, start editing with <leader>M - edits you make will be copied to other regions once you leave insert mode. 
+Once all the regions are set, start editing with <leader>M (or <leader>C which will clear the main region before you start editing).
+
+When you're done, leave insert mode and it will copy the changes to all other regions.
 
 KEY MAPS 
 
-    <leader>mi      Add a disposable region before cursor 
-    <leader>ma     Add a disposable region after cursor 
-    <leader>mm    Add word under cursor (or current visual selection) as a region 
+    " Insert a disposable marker after the cursor
+    nmap <leader>ma :MultieditAddMark a<CR>
 
-    <leader>mn     Add word under cursor and jump to next occurance 
-    <leader>mp      Add word under cursor and jump to previous occurrance 
+    " Insert a disposable marker before the cursor
+    nmap <leader>mi :MultieditAddMark i<CR>
 
-    <leader>md      Delete region under cursor 
-    <leader>mr      Reset all regions 
-    <leader>ms      Set region under cursor as primary	
-    <leader>mu      Restore regions from previous use (if available)
+    " Make a new line and insert a marker
+    nmap <leader>mo o<Esc>:MultieditAddMark i<CR>
+    nmap <leader>mO O<Esc>:MultieditAddMark i<CR>
 
-    <leader>M       Start editing from the end of the main region 
-    <leader>C       Start editing in change mode
+    " Insert a marker at the end/start of a line
+    nmap <leader>mA $:MultieditAddMark a<CR>
+    nmap <leader>mI ^:MultieditAddMark i<CR>
+
+    " Make the current selection/word an edit region
+    vmap <leader>m :MultieditAddRegion<CR>  
+    nmap <leader>mm viw:MultieditAddRegion<CR>
+
+    " Restore the regions from a previous edit session
+    nmap <leader>mu :MultieditRestore<CR>
+
+    " Move cursor between regions n times
+    map ]m :MultieditHop 1<CR>
+    map [m :MultieditHop -1<CR>
+
+    " Start editing!
+    nmap <leader>M :Multiedit<CR>
+
+    " Clear the word and start editing
+    nmap <leader>C :Multiedit!<CR>
+
+    " Unset the region under the cursor
+    nmap <silent> <leader>md :MultieditClear<CR>
+
+    " Unset all regions
+    nmap <silent> <leader>mr :MultieditReset<CR>
+
+CUSTOMIZING
+
+    " Disable all mappings? (So you can set your own)
+    let g:multiedit_no_mappings = 0
+
+    " Reset all regions on InsertLeave when finished?
+    let g:multiedit_auto_reset = 1
+
+    " Disposable marker character (beware characters with strlen > 1 - like
+    " special/unicode symbols - they don't work).
+    let g:multiedit_mark_character = '|'
+
+    " If no selections are present and you initiate edit mode, should it
+    " restore the previous regions?
+    let g:multiedit_auto_restore = 1
+
+The highlight regions can be customized, these are the defaults:
+    hi default link MultieditRegions Search
+    hi default link MultieditFirstRegion IncSearch
